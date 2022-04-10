@@ -1,3 +1,4 @@
+use addr::parse_domain_name;
 use clap::Parser;
 use imap;
 use lettre::address::AddressError;
@@ -33,16 +34,18 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    fetch_inbox_top(args).unwrap();
+    fetch_inbox_top(&args).unwrap();
 }
 
-fn fetch_inbox_top(args: Args) -> imap::error::Result<Option<imap::types::Fetch>> {
+fn fetch_inbox_top(args: &Args) -> imap::error::Result<Option<imap::types::Fetch>> {
     let tls = native_tls::TlsConnector::builder().build().unwrap();
 
     // we pass in the domain twice to check that the server's TLS
     // certificate is valid for the domain we're connecting to.
-    let server = format!("mail.{}", args.server);
-    let client = imap::connect((server.clone(), args.imap_port), server, &tls).unwrap();
+    let _domain = parse_domain_name(&args.server).unwrap();
+    let domain = _domain.root().unwrap();
+
+    let client = imap::connect((args.server.clone(), args.imap_port), &args.server, &tls).unwrap();
 
     // the client we have here is unauthenticated.
     // to do anything useful with the e-mails, we need to log in
@@ -70,7 +73,7 @@ fn fetch_inbox_top(args: Args) -> imap::error::Result<Option<imap::types::Fetch>
         let body_vec = body.to_vec();
         // println!("{:?}", body);
         let parsed = parse_mail(body).unwrap();
-        send_email(&args, body_vec, parsed);
+        send_email(domain, &args, body_vec, parsed);
     }
 
     // be nice to the server and log out
@@ -93,22 +96,17 @@ impl MultipleAddressParser for MessageBuilder {
     }
 }
 
-fn send_email(args: &Args, body: Vec<u8>, parsed: mailparse::ParsedMail) {
+fn send_email(domain: &str, args: &Args, body: Vec<u8>, parsed: mailparse::ParsedMail) {
     let content_type = ContentType::parse("message/rfc822").unwrap();
     let body = Body::new_with_encoding(body, ContentTransferEncoding::EightBit).unwrap();
     let attachment = Attachment::new("original.eml".to_string()).body(body, content_type);
     let subject = parsed.headers.get_first_value("Subject").unwrap();
 
     let email = Message::builder()
-        .from(
-            format!("{}@{}", args.username, args.server)
-                .parse()
-                .unwrap(),
-        )
+        .from(format!("{}@{}", args.username, domain).parse().unwrap())
         .to_addresses(&args.to)
         .unwrap()
-        // .to("Justin Cichra <jmanguy555@yahoo.com>".parse().unwrap())
-        .subject(format!("FW: {}", subject))
+        .subject(format!("fanout: {}", subject))
         .multipart(
             MultiPartBuilder::new()
                 .kind(lettre::message::MultiPartKind::Mixed)
@@ -119,8 +117,7 @@ fn send_email(args: &Args, body: Vec<u8>, parsed: mailparse::ParsedMail) {
     let creds = Credentials::new(args.username.clone(), args.password.clone());
 
     // Open a remote connection to gmail
-    let server = format!("mail.{}", args.server);
-    let mailer = SmtpTransport::starttls_relay(&server)
+    let mailer = SmtpTransport::starttls_relay(&args.server)
         .unwrap()
         .port(args.smtp_port)
         .credentials(creds)
