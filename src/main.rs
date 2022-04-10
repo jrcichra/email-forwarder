@@ -41,7 +41,8 @@ fn fetch_inbox_top(args: Args) -> imap::error::Result<Option<imap::types::Fetch>
 
     // we pass in the domain twice to check that the server's TLS
     // certificate is valid for the domain we're connecting to.
-    let client = imap::connect((args.server.clone(), args.imap_port), &args.server, &tls).unwrap();
+    let server = format!("mail.{}", args.server);
+    let client = imap::connect((server.clone(), args.imap_port), server, &tls).unwrap();
 
     // the client we have here is unauthenticated.
     // to do anything useful with the e-mails, we need to log in
@@ -118,7 +119,8 @@ fn send_email(args: &Args, body: Vec<u8>, parsed: mailparse::ParsedMail) {
     let creds = Credentials::new(args.username.clone(), args.password.clone());
 
     // Open a remote connection to gmail
-    let mailer = SmtpTransport::starttls_relay(args.server.as_str())
+    let server = format!("mail.{}", args.server);
+    let mailer = SmtpTransport::starttls_relay(&server)
         .unwrap()
         .port(args.smtp_port)
         .credentials(creds)
