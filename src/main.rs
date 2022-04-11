@@ -33,8 +33,12 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-
-    fetch_inbox_top(&args).unwrap();
+    loop {
+        println!("Checking for new mail...");
+        fetch_inbox_top(&args).unwrap();
+        println!("Sleeping for 5 minutes...");
+        std::thread::sleep(std::time::Duration::from_secs(60 * 5));
+    }
 }
 
 fn fetch_inbox_top(args: &Args) -> imap::error::Result<Option<imap::types::Fetch>> {
@@ -57,9 +61,11 @@ fn fetch_inbox_top(args: &Args) -> imap::error::Result<Option<imap::types::Fetch
     imap_session.select("INBOX")?;
 
     // this returns a list of new emails
-    // let results = imap_session.search("NEW")?;
-    let mut results: HashSet<u32> = HashSet::new();
-    results.insert(8);
+    let results = imap_session.search("NEW")?;
+
+    if results.is_empty() {
+        println!("No new emails");
+    }
 
     for result in results {
         let messages = imap_session.uid_fetch(result.to_string(), "RFC822")?;
