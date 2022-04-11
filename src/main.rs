@@ -112,7 +112,7 @@ fn send_email(domain: &str, args: &Args, body: Vec<u8>, parsed: mailparse::Parse
         .from(format!("{}@{}", args.username, domain).parse().unwrap())
         .to_addresses(&args.to)
         .unwrap()
-        .subject(format!("fanout: {}", subject))
+        .subject(format!("Fwd: {}", subject))
         .multipart(
             MultiPartBuilder::new()
                 .kind(lettre::message::MultiPartKind::Mixed)
