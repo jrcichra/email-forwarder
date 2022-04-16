@@ -106,7 +106,7 @@ jobs:
         with:
           name: email-fanout
           url: https://kaniko.jrcichra.dev
-          context: "git://github.com/jrcichra/email-fanout"
+          context: "git://github.com/jrcichra/email-fanout#${{ github.sha }}"
           destination: "ghcr.io/jrcichra/email-fanout:sha-${{ steps.vars.outputs.sha_short }}-arm64"
           secret: justin-ghcr-io
           arch: arm64
