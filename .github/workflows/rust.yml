@@ -102,7 +102,7 @@ jobs:
         run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
       - name: Dispatch build to kaniko.jrcichra.dev
         id: dispatch
-        uses: jrcichra/kaniko-dispatcher
+        uses: jrcichra/kaniko-dispatcher@main
         with:
           name: email-fanout
           url: https://kaniko.jrcichra.dev/kaniko
