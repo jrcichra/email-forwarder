@@ -1,7 +1,0 @@
-{
-  "name": "email-fanout-${ARCH}-${SHA}-${EPOCH}",
-  "context": "git://github.com/jrcichra/email-fanout",
-  "destination": "ghcr.io/jrcichra/email-fanout:${SHA}-${ARCH}",
-  "secret": "justin-ghcr-io",
-  "arch": "arm64"
-}
