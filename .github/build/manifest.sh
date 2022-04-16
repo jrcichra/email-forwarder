@@ -2,7 +2,7 @@
 set -x
 
 # env vars
-export SHA="sha-${SHA::8}"
+export SHA="sha-${SHA::7}"
 # pull the containers
 docker pull ghcr.io/jrcichra/email-fanout:${SHA}-amd64
 docker pull ghcr.io/jrcichra/email-fanout:${SHA}-arm64
