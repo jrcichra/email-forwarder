@@ -1,14 +1,14 @@
 [package]
 name = "email-fanout"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-addr = "0.15.3"
-clap = { version = "3.1.8", features = ["derive","env"] }
+addr = "0.15.4"
+clap = { version = "3.2.10", features = ["derive","env"] }
 imap = "2.4.1"
-lettre = "0.10.0-rc.5"
+lettre = "0.10.0"
 mailparse = "0.13.8"
 native-tls = "0.2.10"

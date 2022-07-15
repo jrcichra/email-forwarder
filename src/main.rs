@@ -12,7 +12,6 @@ use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
 use mailparse::parse_mail;
 use mailparse::MailHeaderMap;
-use std::collections::HashSet;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
