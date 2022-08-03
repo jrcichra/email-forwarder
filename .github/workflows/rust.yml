@@ -108,8 +108,8 @@ jobs:
         uses: docker/login-action@v1
         with:
           registry: ghcr.io
-          username: jrcichra
-          password: ${{ secrets.GHCR_SECRET }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Combine manifests
         run: .github/build/manifest.sh
         env:
