@@ -9,6 +9,6 @@ edition = "2021"
 addr = "0.15.4"
 clap = { version = "3.2.16", features = ["derive","env"] }
 imap = "2.4.1"
-lettre = "0.10.0"
+lettre = "0.10.1"
 mailparse = "0.13.8"
 native-tls = "0.2.10"
