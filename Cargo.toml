@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 addr = "0.15.4"
-clap = { version = "3.2.10", features = ["derive","env"] }
+clap = { version = "3.2.16", features = ["derive","env"] }
 imap = "2.4.1"
 lettre = "0.10.0"
 mailparse = "0.13.8"
