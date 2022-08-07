@@ -13,5 +13,6 @@ COPY . .
 RUN (touch /tmp/sccache_log.txt && tail -f /tmp/sccache_log.txt &) && printenv && cargo build --release -j8
 
 FROM gcr.io/distroless/base-debian11
+COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
 COPY --from=builder /usr/src/app/target/release/email-fanout /email-fanout
 ENTRYPOINT ["/email-fanout"]
