@@ -26,6 +26,8 @@ struct Args {
     smtp_port: u16,
     #[clap(long, default_value_t = 993)]
     imap_port: u16,
+    #[clap(long, default_value_t = false)]
+    insecure: bool,
     #[clap(short, long)]
     to: String, // whitespace separated
 }
@@ -41,7 +43,10 @@ fn main() {
 }
 
 fn fetch_inbox_top(args: &Args) -> imap::error::Result<Option<imap::types::Fetch>> {
-    let tls = native_tls::TlsConnector::builder().build().unwrap();
+    let tls = native_tls::TlsConnector::builder()
+        .danger_accept_invalid_certs(args.insecure)
+        .build()
+        .unwrap();
 
     // we pass in the domain twice to check that the server's TLS
     // certificate is valid for the domain we're connecting to.
