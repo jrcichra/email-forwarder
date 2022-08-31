@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-addr = "0.15.4"
+addr = "0.15.6"
 clap = { version = "3.2.19", features = ["derive","env"] }
 imap = "2.4.1"
 lettre = "0.10.1"
