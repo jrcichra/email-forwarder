@@ -1,18 +1,13 @@
-FROM ghcr.io/jrcichra/sccache-rust:sha-240e206 as builder
-ARG SCCACHE_BUCKET
-ARG AWS_ACCESS_KEY_ID
-ARG AWS_SECRET_ACCESS_KEY
-ARG SCCACHE_REGION
-ARG SCCACHE_ENDPOINT
-ARG RUSTC_WRAPPER
-ARG SCCACHE_LOG
-ARG SCCACHE_ERROR_LOG
-WORKDIR /usr/src/app
+FROM rust:1.64.0-bullseye as builder
+WORKDIR /app
 RUN apt-get update && apt-get install -y pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY . .
-RUN (touch /tmp/sccache_log.txt && tail -f /tmp/sccache_log.txt &) && printenv && cargo build --release -j8
+RUN cargo init
+COPY Cargo.toml Cargo.lock /app/
+RUN cargo build --release
+COPY src/main.rs /app/src/main.rs
+RUN touch src/main.rs && cargo build --release
 
 FROM debian:bullseye-20220912-slim
 RUN apt-get update && apt-get install -y pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/src/app/target/release/email-fanout /email-fanout
+COPY --from=builder /app/target/release/email-fanout /email-fanout
 ENTRYPOINT ["/email-fanout"]
