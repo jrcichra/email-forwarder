@@ -2,7 +2,6 @@ use addr::parse_domain_name;
 use clap::Parser;
 use imap;
 use lettre::address::AddressError;
-use lettre::message::header::ContentTransferEncoding;
 use lettre::message::header::ContentType;
 use lettre::message::Attachment;
 use lettre::message::Body;
@@ -65,7 +64,7 @@ fn fetch_inbox_top(args: &Args) -> imap::error::Result<Option<imap::types::Fetch
     imap_session.select("INBOX")?;
 
     // this returns a list of new emails
-    let results = imap_session.search("NEW")?;
+    let results = imap_session.search("UNSEEN")?;
 
     if results.is_empty() {
         println!("No new emails");
@@ -108,7 +107,7 @@ impl MultipleAddressParser for MessageBuilder {
 
 fn send_email(domain: &str, args: &Args, body: Vec<u8>, parsed: mailparse::ParsedMail) {
     let content_type = ContentType::parse("message/rfc822").unwrap();
-    let body = Body::new_with_encoding(body, ContentTransferEncoding::EightBit).unwrap();
+    let body = Body::new(body);
     let attachment = Attachment::new("original.eml".to_string()).body(body, content_type);
     let subject = parsed.headers.get_first_value("Subject").unwrap();
 
