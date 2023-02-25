@@ -1,5 +1,5 @@
 [package]
-name = "email-fanout"
+name = "email-forwarder"
 version = "0.1.1"
 edition = "2021"
 

@@ -11,5 +11,5 @@ RUN touch src/main.rs && cargo build --release
 
 FROM debian:bullseye-20230208-slim
 RUN apt-get update && apt-get install -y pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/email-fanout /email-fanout
-ENTRYPOINT ["/email-fanout"]
+COPY --from=builder /app/target/release/email-forwarder /email-forwarder
+ENTRYPOINT ["/email-forwarder"]
