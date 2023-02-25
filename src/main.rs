@@ -1,12 +1,15 @@
+use std::error::Error;
+
 use addr::parse_domain_name;
 use clap::Parser;
 use imap;
-use lettre::address::AddressError;
 use lettre::address::Envelope;
-use lettre::message::MessageBuilder;
 use lettre::transport::smtp::authentication::Credentials;
+use lettre::transport::smtp::response::Response;
 use lettre::Address;
 use lettre::{SmtpTransport, Transport};
+use log::{info, warn};
+use simple_logger::SimpleLogger;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -29,85 +32,74 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
+    SimpleLogger::new().init().unwrap();
     loop {
-        println!("Checking for new mail...");
-        fetch_inbox_top(&args).unwrap();
-        println!("Sleeping for 5 minutes...");
+        info!("Checking for new mail...");
+        match fetch_and_send(&args) {
+            Ok(_) => info!("Successfully sent email!"),
+            Err(x) => warn!("{}", x),
+        }
+        info!("Sleeping for 5 minutes...");
         std::thread::sleep(std::time::Duration::from_secs(60 * 5));
     }
 }
 
-fn fetch_inbox_top(args: &Args) -> imap::error::Result<Option<imap::types::Fetch>> {
+fn fetch_and_send(args: &Args) -> Result<(), Box<dyn Error>> {
     let tls = native_tls::TlsConnector::builder()
         .danger_accept_invalid_certs(args.insecure)
         .build()
         .unwrap();
 
-    // we pass in the domain twice to check that the server's TLS
+    // We pass in the domain twice to check that the server's TLS
     // certificate is valid for the domain we're connecting to.
     let _domain = parse_domain_name(&args.server).unwrap();
     let domain = _domain.root().unwrap();
 
     let client = imap::connect((args.server.clone(), args.imap_port), &args.server, &tls).unwrap();
 
-    // the client we have here is unauthenticated.
-    // to do anything useful with the e-mails, we need to log in
+    // The client we have here is unauthenticated.
+    // To do anything useful with the e-mails, we need to log in
     let mut imap_session = client
         .login(&args.username, &args.password)
         .map_err(|e| e.0)?;
 
-    // we want to fetch the first email in the INBOX mailbox
+    // We want to fetch emails in the INBOX
     imap_session.select("INBOX")?;
 
-    // this returns a list of new emails
+    // This returns a list of unseen emails, which are all emails not marked as read.
     let results = imap_session.search("UNSEEN")?;
 
     if results.is_empty() {
-        println!("No new emails");
+        Err("No new emails")?
     }
 
     for result in results {
         let messages = imap_session.uid_fetch(result.to_string(), "RFC822")?;
-        let message = if let Some(m) = messages.iter().next() {
-            m
-        } else {
-            return Ok(None);
-        };
-        let body = message.body().expect("message did not have a body!");
-        send_email(domain, &args, body.to_vec());
-    }
-
-    // be nice to the server and log out
-    imap_session.logout()?;
-
-    Ok(None)
-}
-
-// https://github.com/lettre/lettre/discussions/746#discussioncomment-2506754
-pub trait MultipleAddressParser {
-    fn to_addresses(self, addresses: &str) -> Result<MessageBuilder, AddressError>;
-}
-
-impl MultipleAddressParser for MessageBuilder {
-    fn to_addresses(mut self, addresses: &str) -> Result<Self, AddressError> {
-        for address in addresses.split_whitespace() {
-            self = self.to(address.parse()?);
+        for message in &messages {
+            let body = message.body().expect("message did not have a body!");
+            send_email(domain, &args, body.to_vec())?;
         }
-        Ok(self)
     }
+    // Be nice to the server and log out
+    imap_session.logout()?;
+    Ok(())
 }
 
-fn send_email(domain: &str, args: &Args, body: Vec<u8>) {
+fn send_email(
+    domain: &str,
+    args: &Args,
+    body: Vec<u8>,
+) -> Result<Response, lettre::transport::smtp::Error> {
     let creds = Credentials::new(args.username.clone(), args.password.clone());
 
-    // Open a remote connection to gmail
+    // Open a remote connection to source
     let mailer = SmtpTransport::starttls_relay(&args.server)
         .unwrap()
         .port(args.smtp_port)
         .credentials(creds)
         .build();
 
-    // Send the email
+    // Build envelope
     let from = format!("{}@{}", args.username, domain)
         .parse::<Address>()
         .unwrap();
@@ -117,8 +109,6 @@ fn send_email(domain: &str, args: &Args, body: Vec<u8>) {
         .map(|recipient| recipient.parse::<Address>().unwrap())
         .collect();
     let envelope = Envelope::new(Some(from), recipients).unwrap();
-    match mailer.send_raw(&envelope, &body) {
-        Ok(_) => println!("Email sent successfully!"),
-        Err(e) => panic!("Could not send email: {:?}", e),
-    }
+    // Send the email
+    mailer.send_raw(&envelope, &body)
 }
