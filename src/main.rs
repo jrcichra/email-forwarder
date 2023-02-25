@@ -2,15 +2,11 @@ use addr::parse_domain_name;
 use clap::Parser;
 use imap;
 use lettre::address::AddressError;
-use lettre::message::header::ContentType;
-use lettre::message::Attachment;
-use lettre::message::Body;
+use lettre::address::Envelope;
 use lettre::message::MessageBuilder;
-use lettre::message::MultiPartBuilder;
 use lettre::transport::smtp::authentication::Credentials;
-use lettre::{Message, SmtpTransport, Transport};
-use mailparse::parse_mail;
-use mailparse::MailHeaderMap;
+use lettre::Address;
+use lettre::{SmtpTransport, Transport};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -78,11 +74,7 @@ fn fetch_inbox_top(args: &Args) -> imap::error::Result<Option<imap::types::Fetch
             return Ok(None);
         };
         let body = message.body().expect("message did not have a body!");
-        // convert body to vector
-        let body_vec = body.to_vec();
-        // println!("{:?}", body);
-        let parsed = parse_mail(body).unwrap();
-        send_email(domain, &args, body_vec, parsed);
+        send_email(domain, &args, body.to_vec());
     }
 
     // be nice to the server and log out
@@ -105,24 +97,7 @@ impl MultipleAddressParser for MessageBuilder {
     }
 }
 
-fn send_email(domain: &str, args: &Args, body: Vec<u8>, parsed: mailparse::ParsedMail) {
-    let content_type = ContentType::parse("message/rfc822").unwrap();
-    let body = Body::new(body);
-    let attachment = Attachment::new("original.eml".to_string()).body(body, content_type);
-    let subject = parsed.headers.get_first_value("Subject").unwrap();
-
-    let email = Message::builder()
-        .from(format!("{}@{}", args.username, domain).parse().unwrap())
-        .to_addresses(&args.to)
-        .unwrap()
-        .subject(format!("Fwd: {}", subject))
-        .multipart(
-            MultiPartBuilder::new()
-                .kind(lettre::message::MultiPartKind::Mixed)
-                .singlepart(attachment),
-        )
-        .unwrap();
-
+fn send_email(domain: &str, args: &Args, body: Vec<u8>) {
     let creds = Credentials::new(args.username.clone(), args.password.clone());
 
     // Open a remote connection to gmail
@@ -133,7 +108,16 @@ fn send_email(domain: &str, args: &Args, body: Vec<u8>, parsed: mailparse::Parse
         .build();
 
     // Send the email
-    match mailer.send(&email) {
+    let from = format!("{}@{}", args.username, domain)
+        .parse::<Address>()
+        .unwrap();
+    let recipients = args
+        .to
+        .split_whitespace()
+        .map(|recipient| recipient.parse::<Address>().unwrap())
+        .collect();
+    let envelope = Envelope::new(Some(from), recipients).unwrap();
+    match mailer.send_raw(&envelope, &body) {
         Ok(_) => println!("Email sent successfully!"),
         Err(e) => panic!("Could not send email: {:?}", e),
     }
