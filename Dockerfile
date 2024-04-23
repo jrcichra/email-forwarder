@@ -1,15 +1,9 @@
-FROM rust:1.77.2-bullseye as builder
+FROM gcr.io/distroless/base-debian12:debug-nonroot as rename
 WORKDIR /app
-# https://users.rust-lang.org/t/cargo-uses-too-much-memory-being-run-in-qemu/76531
-ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
-RUN apt-get update && apt-get install -y pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN cargo init
-COPY Cargo.toml Cargo.lock /app/
-RUN cargo build --release
-COPY src/main.rs /app/src/main.rs
-RUN touch src/main.rs && cargo build --release
+COPY target/aarch64-unknown-linux-gnu/release/email-forwarder email-forwarder-arm64
+COPY target/x86_64-unknown-linux-gnu/release/email-forwarder email-forwarder-amd64
 
-FROM debian:bullseye-20240408-slim
-RUN apt-get update && apt-get install -y pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/email-forwarder /email-forwarder
-ENTRYPOINT ["/email-forwarder"]
+FROM gcr.io/distroless/base-debian12:nonroot
+ARG TARGETARCH
+COPY --from=rename /app/email-forwarder-$TARGETARCH /app/email-forwarder
+ENTRYPOINT [ "/app/email-forwarder" ]

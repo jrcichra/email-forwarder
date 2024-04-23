@@ -1,11 +1,9 @@
-use std::error::Error;
-
 use addr::parse_domain_name;
+use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use imap;
 use lettre::address::Envelope;
 use lettre::transport::smtp::authentication::Credentials;
-use lettre::transport::smtp::response::Response;
 use lettre::Address;
 use lettre::{SmtpTransport, Transport};
 use log::{info, warn};
@@ -30,13 +28,13 @@ struct Args {
     to: String, // whitespace separated
 }
 
-fn main() {
+fn main() -> Result<()> {
     let args = Args::parse();
-    SimpleLogger::new().init().unwrap();
+    SimpleLogger::new().init()?;
     loop {
         info!("Checking for new mail...");
         match fetch_and_send(&args) {
-            Ok(_) => info!("Successfully sent email!"),
+            Ok(_) => info!("Successfully sent emails!"),
             Err(x) => warn!("{}", x),
         }
         info!("Sleeping for 5 minutes...");
@@ -44,18 +42,17 @@ fn main() {
     }
 }
 
-fn fetch_and_send(args: &Args) -> Result<(), Box<dyn Error>> {
+fn fetch_and_send(args: &Args) -> Result<()> {
     let tls = native_tls::TlsConnector::builder()
         .danger_accept_invalid_certs(args.insecure)
-        .build()
-        .unwrap();
+        .build()?;
 
     // We pass in the domain twice to check that the server's TLS
     // certificate is valid for the domain we're connecting to.
     let _domain = parse_domain_name(&args.server).unwrap();
-    let domain = _domain.root().unwrap();
+    let domain = _domain.root().context("could not get root of domain")?;
 
-    let client = imap::connect((args.server.clone(), args.imap_port), &args.server, &tls).unwrap();
+    let client = imap::connect((args.server.clone(), args.imap_port), &args.server, &tls)?;
 
     // The client we have here is unauthenticated.
     // To do anything useful with the e-mails, we need to log in
@@ -70,7 +67,7 @@ fn fetch_and_send(args: &Args) -> Result<(), Box<dyn Error>> {
     let results = imap_session.search("UNSEEN")?;
 
     if results.is_empty() {
-        Err("No new emails")?
+        return Err(anyhow!("No new emails"));
     }
 
     for result in results {
@@ -85,16 +82,11 @@ fn fetch_and_send(args: &Args) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn send_email(
-    domain: &str,
-    args: &Args,
-    body: Vec<u8>,
-) -> Result<Response, lettre::transport::smtp::Error> {
+fn send_email(domain: &str, args: &Args, body: Vec<u8>) -> Result<()> {
     let creds = Credentials::new(args.username.clone(), args.password.clone());
 
     // Open a remote connection to source
-    let mailer = SmtpTransport::starttls_relay(&args.server)
-        .unwrap()
+    let mailer = SmtpTransport::starttls_relay(&args.server)?
         .port(args.smtp_port)
         .credentials(creds)
         .build();
@@ -102,13 +94,14 @@ fn send_email(
     // Build envelope
     let from = format!("{}@{}", args.username, domain)
         .parse::<Address>()
-        .unwrap();
+        .context("could not parse address")?;
     let recipients = args
         .to
         .split_whitespace()
         .map(|recipient| recipient.parse::<Address>().unwrap())
         .collect();
-    let envelope = Envelope::new(Some(from), recipients).unwrap();
+    let envelope = Envelope::new(Some(from), recipients)?;
     // Send the email
-    mailer.send_raw(&envelope, &body)
+    mailer.send_raw(&envelope, &body)?;
+    Ok(())
 }
