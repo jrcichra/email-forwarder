@@ -1,3 +1,5 @@
+use std::process;
+
 use addr::parse_domain_name;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
@@ -29,8 +31,15 @@ struct Args {
 }
 
 fn main() -> Result<()> {
-    let args = Args::parse();
     SimpleLogger::new().init()?;
+
+    ctrlc::set_handler(move || {
+        info!("Got signal. Shutting down...");
+        process::exit(0);
+    })?;
+
+    let args = Args::parse();
+
     loop {
         info!("Checking for new mail...");
         match fetch_and_send(&args) {
