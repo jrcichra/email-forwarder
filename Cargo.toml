@@ -14,5 +14,5 @@ imap = "2.4.1"
 lettre = "0.11.7"
 log = "0.4.22"
 native-tls = "0.2.12"
-openssl = { version = "0.10.64", features = ["vendored"] }
+openssl = { version = "0.10.66", features = ["vendored"] }
 simple_logger = "5.0.0"
