@@ -1,4 +1,4 @@
-FROM busybox:1.36.1 as rename
+FROM busybox:1.37.0 as rename
 WORKDIR /app
 COPY target/aarch64-unknown-linux-gnu/release/email-forwarder email-forwarder-arm64
 COPY target/x86_64-unknown-linux-gnu/release/email-forwarder email-forwarder-amd64
