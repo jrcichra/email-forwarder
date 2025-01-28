@@ -15,4 +15,4 @@ lettre = "0.11.11"
 log = "0.4.25"
 native-tls = "0.2.12"
 simple_logger = "5.0.0"
-openssl = { version = "0.10.68", features = ["vendored"] }
+openssl = { version = "0.10.69", features = ["vendored"] }
