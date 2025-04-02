@@ -12,7 +12,7 @@ clap = { version = "4.5.32", features = ["derive","env"] }
 ctrlc = { version = "3.4.5", features = ["termination"] }
 imap = "2.4.1"
 lettre = "0.11.15"
-log = "0.4.26"
+log = "0.4.27"
 native-tls = "0.2.14"
 simple_logger = "5.0.0"
 openssl = { version = "0.10.71", features = ["vendored"] }
