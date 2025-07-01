@@ -11,7 +11,7 @@ anyhow = "1.0.98"
 clap = { version = "4.5.39", features = ["derive","env"] }
 ctrlc = { version = "3.4.7", features = ["termination"] }
 imap = "2.4.1"
-lettre = "0.11.16"
+lettre = "0.11.17"
 log = "0.4.27"
 native-tls = "0.2.14"
 simple_logger = "5.0.0"
