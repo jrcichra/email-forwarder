@@ -14,9 +14,9 @@ use simple_logger::SimpleLogger;
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    #[clap(short, long)]
+    #[clap(short, long, env)]
     username: String,
-    #[clap(short, long)]
+    #[clap(short, long, env)]
     password: String,
     #[clap(short, long)]
     server: String,
@@ -58,7 +58,8 @@ fn fetch_and_send(args: &Args) -> Result<()> {
 
     // We pass in the domain twice to check that the server's TLS
     // certificate is valid for the domain we're connecting to.
-    let _domain = parse_domain_name(&args.server).unwrap();
+    let _domain = parse_domain_name(&args.server)
+        .map_err(|e| anyhow!("could not parse server as a domain name: {}", e))?;
     let domain = _domain.root().context("could not get root of domain")?;
 
     let client = imap::connect((args.server.clone(), args.imap_port), &args.server, &tls)?;
@@ -73,17 +74,32 @@ fn fetch_and_send(args: &Args) -> Result<()> {
     imap_session.select("INBOX")?;
 
     // This returns a list of unseen emails, which are all emails not marked as read.
-    let results = imap_session.search("UNSEEN")?;
+    let results = imap_session.uid_search("UNSEEN")?;
 
     if results.is_empty() {
         return Err(anyhow!("No new emails"));
     }
 
-    for result in results {
-        let messages = imap_session.uid_fetch(result.to_string(), "RFC822")?;
+    for uid in results {
+        // BODY.PEEK[] fetches the message without marking it \Seen, so a failed
+        // send leaves it eligible to be retried on the next poll.
+        let messages = imap_session.uid_fetch(uid.to_string(), "BODY.PEEK[]")?;
         for message in &messages {
-            let body = message.body().expect("message did not have a body!");
-            send_email(domain, &args, body.to_vec())?;
+            let body = match message.body() {
+                Some(body) => body,
+                None => {
+                    warn!("UID {} had no body, skipping", uid);
+                    continue;
+                }
+            };
+            match send_email(domain, &args, body.to_vec()) {
+                Ok(_) => {
+                    if let Err(e) = imap_session.uid_store(uid.to_string(), "+FLAGS (\\Seen)") {
+                        warn!("Failed to mark UID {} as seen: {}", uid, e);
+                    }
+                }
+                Err(e) => warn!("Failed to send UID {}: {}", uid, e),
+            }
         }
     }
     // Be nice to the server and log out
@@ -107,8 +123,12 @@ fn send_email(domain: &str, args: &Args, body: Vec<u8>) -> Result<()> {
     let recipients = args
         .to
         .split_whitespace()
-        .map(|recipient| recipient.parse::<Address>().unwrap())
-        .collect();
+        .map(|recipient| {
+            recipient
+                .parse::<Address>()
+                .with_context(|| format!("could not parse recipient address: {}", recipient))
+        })
+        .collect::<Result<Vec<_>>>()?;
     let envelope = Envelope::new(Some(from), recipients)?;
     // Send the email
     mailer.send_raw(&envelope, &body)?;
