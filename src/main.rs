@@ -43,7 +43,7 @@ fn main() -> Result<()> {
     loop {
         info!("Checking for new mail...");
         match fetch_and_send(&args) {
-            Ok(_) => info!("Successfully sent emails!"),
+            Ok(count) => info!("Successfully sent {} email(s)!", count),
             Err(x) => warn!("{}", x),
         }
         info!("Sleeping for 5 minutes...");
@@ -51,7 +51,7 @@ fn main() -> Result<()> {
     }
 }
 
-fn fetch_and_send(args: &Args) -> Result<()> {
+fn fetch_and_send(args: &Args) -> Result<u32> {
     let tls = native_tls::TlsConnector::builder()
         .danger_accept_invalid_certs(args.insecure)
         .build()?;
@@ -80,6 +80,7 @@ fn fetch_and_send(args: &Args) -> Result<()> {
         return Err(anyhow!("No new emails"));
     }
 
+    let mut sent_count = 0u32;
     for uid in results {
         // BODY.PEEK[] fetches the message without marking it \Seen, so a failed
         // send leaves it eligible to be retried on the next poll.
@@ -94,6 +95,7 @@ fn fetch_and_send(args: &Args) -> Result<()> {
             };
             match send_email(domain, &args, body.to_vec()) {
                 Ok(_) => {
+                    sent_count += 1;
                     if let Err(e) = imap_session.uid_store(uid.to_string(), "+FLAGS (\\Seen)") {
                         warn!("Failed to mark UID {} as seen: {}", uid, e);
                     }
@@ -104,7 +106,7 @@ fn fetch_and_send(args: &Args) -> Result<()> {
     }
     // Be nice to the server and log out
     imap_session.logout()?;
-    Ok(())
+    Ok(sent_count)
 }
 
 fn send_email(domain: &str, args: &Args, body: Vec<u8>) -> Result<()> {
